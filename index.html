@@ -4,114 +4,132 @@
 <meta charset="utf-8">
 <title>Audio Reactive CRT Slime</title>
 
+<!-- iOS fullscreen app-like display -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  background: black;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-canvas { display: block; height: 100%; width: 100%; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
 </style>
 </head>
 <body>
 <script src="https://unpkg.com/hydra-synth"></script>
 <script>
-const hydra = new Hydra({ detectAudio: false });
-let ampLevel = 0;
+  const hydra = new Hydra({ detectAudio: false });
+  let ampLevel = 0;
 
-// --- Prevent screen sleep ---
-if ('wakeLock' in navigator) {
-  let wakeLock = null;
-  const requestWakeLock = async () => {
-    try {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => console.log('Screen Wake Lock released'));
-    } catch (err) { console.error(err); }
-  };
-  requestWakeLock();
-  document.addEventListener('visibilitychange', () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
-  });
-}
-
-// --- Microphone input ---
-navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaStreamSource(stream);
-  const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 256;
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source.connect(analyser);
-  function updateAmp() {
-    analyser.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      let val = (dataArray[i]-128)/128;
-      sum += val*val;
-    }
-    ampLevel = Math.sqrt(sum/dataArray.length)*5;
-    requestAnimationFrame(updateAmp);
+  // --- Prevent screen sleep (Wake Lock) ---
+  if ('wakeLock' in navigator) {
+    let wakeLock = null;
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          console.log('Screen Wake Lock released');
+        });
+        console.log('Screen Wake Lock active');
+      } catch (err) {
+        console.error('Wake Lock error:', err);
+      }
+    };
+    requestWakeLock();
+    document.addEventListener('visibilitychange', () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    });
   }
-  updateAmp();
-}).catch(err=>console.error(err));
 
-const chaosFactor = () => Math.min(1, ampLevel);
+  // --- Microphone input ---
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
 
-// --- Slime generator ---
-const slime = () =>
-  voronoi(
-    () => 20 + chaosFactor() * 80,
-    0.3 + chaosFactor() * 1.5,
-    0.8
-  )
-  .modulate(noise(4 + chaosFactor()*12, 0.3 + chaosFactor()*0.5))
-  .color(0.2 + chaosFactor()*0.8, 1.0, 0.4 + chaosFactor()*0.5)
-  .saturate(2.0 + chaosFactor()*3)
-  .contrast(1.5 + chaosFactor())
-  .brightness(0.1 + chaosFactor()*0.3)
-  .rotate(()=>time*0.02*(1 + chaosFactor()));
+    function updateAmp() {
+      analyser.getByteTimeDomainData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        let val = (dataArray[i] - 128) / 128;
+        sum += val * val;
+      }
+      ampLevel = Math.sqrt(sum / dataArray.length) * 5;
+      requestAnimationFrame(updateAmp);
+    }
+    updateAmp();
+  }).catch(err => console.error("Microphone error:", err));
 
-// --- Scanlines ---
-const warpedScanlines = () =>
-  osc(300, 0, 0.5)
-  .modulate(noise(1, 0.2), ()=>0.02 + 0.02*Math.sin(time*0.5))
-  .thresh(0.5)
-  .mult(solid(0,0,0,0.2));
+  const chaosFactor = () => Math.min(1, ampLevel);
 
-// --- CRT flicker ---
-const flicker = () => solid(1,1,1).mult(solid(1,1,1, ()=>0.96 + 0.04*Math.sin(time*60)));
+  // --- Slime generator ---
+  const slime = () =>
+    voronoi(
+      () => 20 + chaosFactor() * 80,
+      0.3 + chaosFactor() * 1.5,
+      0.8
+    )
+    .modulate(noise(4 + chaosFactor() * 12, 0.3 + chaosFactor() * 0.5))
+    .color(0.2 + chaosFactor() * 0.8, 1.0, 0.4 + chaosFactor() * 0.5)
+    .saturate(2.0 + chaosFactor() * 3)
+    .contrast(1.5 + chaosFactor())
+    .brightness(0.1 + chaosFactor() * 0.3)
+    .rotate(() => time * 0.02 * (1 + chaosFactor()));
 
-// --- Vertical roll ---
-const verticalRoll = src(o0).scrollY(()=> (Math.floor(time%8)===0 ? time*0.5%1 : 0));
+  // --- Scanlines ---
+  const warpedScanlines = () =>
+    osc(300, 0, 0.5)
+      .modulate(noise(1, 0.2), () => 0.02 + 0.02 * Math.sin(time * 0.5))
+      .thresh(0.5)
+      .mult(solid(0, 0, 0, 0.2));
 
-// --- Main render ---
-verticalRoll
-  .scale(1.003)
-  .scrollX(()=> Math.sin(time*0.2)*0.002)
-  .scrollY(()=> Math.cos(time*0.15)*0.002)
-  .mult(solid(1,1,1,0.94))
-  .layer(
-    slime()
-      .add(slime().color(1,0,0).scrollX(0.002), 0.05)
-      .add(slime().color(0,0,1).scrollX(-0.002), 0.05)
-  )
-  .mult(flicker())
-  .layer(warpedScanlines())
-  .out(o0);
+  // --- CRT flicker ---
+  const flicker = () =>
+    solid(1, 1, 1)
+      .mult(solid(1, 1, 1, () => 0.96 + 0.04 * Math.sin(time * 60)));
 
-render(o0);
+  // --- Vertical roll ---
+  const verticalRoll = src(o0)
+    .scrollY(() => (Math.floor(time % 8) === 0 ? time * 0.5 % 1 : 0));
 
-// --- iOS audio requires tap ---
-document.body.addEventListener('click', ()=>{
-  if(hydra.audioCtx && hydra.audioCtx.state==='suspended') hydra.audioCtx.resume();
-});
+  // --- Main render ---
+  verticalRoll
+    .scale(1.003)
+    .scrollX(() => Math.sin(time * 0.2) * 0.002)
+    .scrollY(() => Math.cos(time * 0.15) * 0.002)
+    .mult(solid(1, 1, 1, 0.94))
+    .layer(
+      slime()
+        .add(slime().color(1, 0, 0).scrollX(0.002), 0.05)
+        .add(slime().color(0, 0, 1).scrollX(-0.002), 0.05)
+    )
+    .mult(flicker())
+    .layer(warpedScanlines())
+    .out(o0);
+
+  render(o0);
+
+  // --- iOS audio requires tap ---
+  document.body.addEventListener('click', () => {
+    if (hydra.audioCtx && hydra.audioCtx.state === 'suspended') {
+      hydra.audioCtx.resume();
+    }
+  });
 </script>
 </body>
 </html>
