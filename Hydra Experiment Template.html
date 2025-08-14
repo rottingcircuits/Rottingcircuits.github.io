@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hydra Experiment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #222; /* default background */
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+canvas { display: block; height: 100%; width: 100%; }
+</style>
+</head>
+<body>
+
+<script src="https://unpkg.com/hydra-synth"></script>
+<script>
+const hydra = new Hydra({ detectAudio: false });
+let ampLevel = 0;
+
+// --- Prevent screen sleep on iOS ---
+if ('wakeLock' in navigator) {
+  let wakeLock = null;
+  const requestWakeLock = async () => {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } catch (err) { console.error(err); }
+  };
+  requestWakeLock();
+  document.addEventListener('visibilitychange', () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
+  });
+}
+
+// --- Microphone input ---
+navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+  function updateAmp() {
+    analyser.getByteTimeDomainData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      let val = (dataArray[i]-128)/128;
+      sum += val*val;
+    }
+    ampLevel = Math.sqrt(sum/dataArray.length)*5;
+    requestAnimationFrame(updateAmp);
+  }
+  updateAmp();
+}).catch(err=>console.error(err));
+
+// --- Helper function for audio-reactive factor ---
+const chaosFactor = () => Math.min(1, ampLevel);
+
+// --- PLACEHOLDER: Insert your Hydra script below ---
+/* Example template:
+osc(10, 0.1, 0.8)
+  .rotate(()=>time*0.1)
+  .modulate(noise(3,0.3))
+  .color(1,0.5,0.3)
+  .saturate(2)
+  .out(o0);
+
+render(o0);
+*/
+
+// --- Resume audio context on iOS tap ---
+document.body.addEventListener('click', ()=>{
+  if(hydra.audioCtx && hydra.audioCtx.state==='suspended') hydra.audioCtx.resume();
+});
+</script>
+</body>
+</html>
