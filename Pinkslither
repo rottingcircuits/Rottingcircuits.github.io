@@ -1,0 +1,55 @@
+// --- Layered Psychedelic Chaos (No Audio, More Grey) ---
+// Random motion every 10 seconds, less vibrant pink, more grey
+// seconds
+let chaosInterval = 10;
+let randomOffsets = {
+	bass: 0,
+	mid: 0,
+	treble: 0
+};
+// Update chaos offsets
+setInterval(() => {
+	randomOffsets.bass = Math.random() * 0.1 - 0.05;
+	randomOffsets.mid = Math.random() * 0.1 - 0.05;
+	randomOffsets.treble = Math.random() * 0.1 - 0.05;
+}, chaosInterval * 1000);
+// --- Layer 1: Bass ---
+osc(6, 0.01, 0.8)
+	.color(0.5, 0.784, 0.6)
+	.scale(() => 1.02 + randomOffsets.bass)
+	.rotate(() => 0.02 * Math.sin(time * 0.1) + randomOffsets.bass)
+	.diff(src(o1)
+		.scale(() => 1 + 0.01 + randomOffsets.bass))
+	.blend(src(o1), 0.7)
+	.saturate(1.5)
+	.out(o1);
+// more greyish cyan-green
+// less saturated
+// --- Layer 2: Mid ---
+osc(5, 0.02, 0.9)
+	.color(0.6, 0.6, 0.65)
+	.rotate(() => 0.05 * Math.sin(time * 0.15) + randomOffsets.mid)
+	.diff(src(o2)
+		.rotate(() => 0.01 + 0.03 + randomOffsets.mid))
+	.blend(src(o2), 0.7)
+	.scrollX(() => 0.005 * Math.sin(time * 0.2) + randomOffsets.mid)
+	.saturate(1.5)
+	.out(o2);
+// muted grey-green
+// --- Layer 3: Treble ---
+osc(8, 0.03, 1)
+	.color(0.55, 0.6, 0.65)
+	.rotate(() => 0.03 * Math.cos(time * 0.2) + randomOffsets.treble)
+	.diff(src(o3)
+		.rotate(() => 0.005 + 0.02 + randomOffsets.treble))
+	.blend(src(o3), 0.312)
+	.scrollY(() => 0.006 * Math.cos(time * 0.25) + randomOffsets.treble)
+	.saturate(1.5)
+	.out(o3);
+// greyish blue
+// --- Composite layers to screen ---
+src(o1)
+	.blend(src(o2), 0.5)
+	.blend(src(o3), 0.5)
+	.out();
+render();
