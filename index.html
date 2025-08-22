@@ -53,83 +53,66 @@
     });
   }
 
-  // --- Microphone input ---
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioCtx.createMediaStreamSource(stream);
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    source.connect(analyser);
-
-    function updateAmp() {
-      analyser.getByteTimeDomainData(dataArray);
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        let val = (dataArray[i] - 128) / 128;
-        sum += val * val;
-      }
-      ampLevel = Math.sqrt(sum / dataArray.length) * 5;
-      requestAnimationFrame(updateAmp);
-    }
-    updateAmp();
-  }).catch(err => console.error("Microphone error:", err));
-
-  const chaosFactor = () => Math.min(1, ampLevel);
+  // Random motion every 10 seconds, less vibrant pink, more grey
+// seconds
+let chaosInterval = 10;
+let randomOffsets = {
+	bass: 0,
+	mid: 0,
+	treble: 0
+};
+// Update chaos offsets
+setInterval(() => {
+	randomOffsets.bass = Math.random() * 0.1 - 0.05;
+	randomOffsets.mid = Math.random() * 0.1 - 0.05;
+	randomOffsets.treble = Math.random() * 0.1 - 0.05;
+}, chaosInterval * 1000);
+// --- Layer 1: Bass ---
+osc(6, 0.01, 0.8)
+	.color(0.5, 0.784, 0.6)
+	.scale(() => 1.02 + randomOffsets.bass)
+	.rotate(() => 0.02 * Math.sin(time * 0.1) + randomOffsets.bass)
+	.diff(src(o1)
+		.scale(() => 1 + 0.01 + randomOffsets.bass))
+	.blend(src(o1), 0.7)
+	.saturate(1.5)
+	.out(o1);
+// more greyish cyan-green
+// less saturated
+// --- Layer 2: Mid ---
+osc(5, 0.02, 0.9)
+	.color(0.6, 0.6, 0.65)
+	.rotate(() => 0.05 * Math.sin(time * 0.15) + randomOffsets.mid)
+	.diff(src(o2)
+		.rotate(() => 0.01 + 0.03 + randomOffsets.mid))
+	.blend(src(o2), 0.7)
+	.scrollX(() => 0.005 * Math.sin(time * 0.2) + randomOffsets.mid)
+	.saturate(1.5)
+	.out(o2);
+// muted grey-green
+// --- Layer 3: Treble ---
+osc(8, 0.03, 1)
+	.color(0.55, 0.6, 0.65)
+	.rotate(() => 0.03 * Math.cos(time * 0.2) + randomOffsets.treble)
+	.diff(src(o3)
+		.rotate(() => 0.005 + 0.02 + randomOffsets.treble))
+	.blend(src(o3), 0.312)
+	.scrollY(() => 0.006 * Math.cos(time * 0.25) + randomOffsets.treble)
+	.saturate(1.5)
+	.out(o3);
+// greyish blue
+// --- Composite layers to screen ---
+src(o1)
+	.blend(src(o2), 0.5)
+	.blend(src(o3), 0.5)
+	.out();
+render();// --- Microphone input ---
+  
 
   // --- Slime generator ---
-  const slime = () =>
-    voronoi(
-      () => 20 + chaosFactor() * 80,
-      0.3 + chaosFactor() * 1.5,
-      0.8
-    )
-    .modulate(noise(4 + chaosFactor() * 12, 0.3 + chaosFactor() * 0.5))
-    .color(0.2 + chaosFactor() * 0.8, 1.0, 0.4 + chaosFactor() * 0.5)
-    .saturate(2.0 + chaosFactor() * 3)
-    .contrast(1.5 + chaosFactor())
-    .brightness(0.1 + chaosFactor() * 0.3)
-    .rotate(() => time * 0.02 * (1 + chaosFactor()));
-
-  // --- Scanlines ---
-  const warpedScanlines = () =>
-    osc(300, 0, 0.5)
-      .modulate(noise(1, 0.2), () => 0.02 + 0.02 * Math.sin(time * 0.5))
-      .thresh(0.5)
-      .mult(solid(0, 0, 0, 0.2));
-
-  // --- CRT flicker ---
-  const flicker = () =>
-    solid(1, 1, 1)
-      .mult(solid(1, 1, 1, () => 0.96 + 0.04 * Math.sin(time * 60)));
-
+  
   // --- Vertical roll ---
-  const verticalRoll = src(o0)
-    .scrollY(() => (Math.floor(time % 8) === 0 ? time * 0.5 % 1 : 0));
-
-  // --- Main render ---
-  verticalRoll
-    .scale(1.003)
-    .scrollX(() => Math.sin(time * 0.2) * 0.002)
-    .scrollY(() => Math.cos(time * 0.15) * 0.002)
-    .mult(solid(1, 1, 1, 0.94))
-    .layer(
-      slime()
-        .add(slime().color(1, 0, 0).scrollX(0.002), 0.05)
-        .add(slime().color(0, 0, 1).scrollX(-0.002), 0.05)
-    )
-    .mult(flicker())
-    .layer(warpedScanlines())
-    .out(o0);
-
-  render(o0);
-
-  // --- iOS audio requires tap ---
-  document.body.addEventListener('click', () => {
-    if (hydra.audioCtx && hydra.audioCtx.state === 'suspended') {
-      hydra.audioCtx.resume();
-    }
-  });
+  
 </script>
 </body>
 </html>
