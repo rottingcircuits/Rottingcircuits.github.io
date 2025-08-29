@@ -55,59 +55,50 @@
 
   // Random motion every 10 seconds, less vibrant pink, more grey
 // seconds
-let chaosInterval = 10;
-let randomOffsets = {
-	bass: 0,
-	mid: 0,
-	treble: 0
-};
-// Update chaos offsets
-setInterval(() => {
-	randomOffsets.bass = Math.random() * 0.1 - 0.05;
-	randomOffsets.mid = Math.random() * 0.1 - 0.05;
-	randomOffsets.treble = Math.random() * 0.1 - 0.05;
-}, chaosInterval * 1000);
-// --- Layer 1: Bass ---
-osc(6, 0.01, 0.8)
-	.color(0.5, 0.784, 0.6)
-	.scale(() => 1.02 + randomOffsets.bass)
-	.rotate(() => 0.02 * Math.sin(time * 0.1) + randomOffsets.bass)
-	.diff(src(o1)
-		.scale(() => 1 + 0.01 + randomOffsets.bass))
-	.blend(src(o1), 0.7)
-	.saturate(1.5)
-	.out(o1);
-// more greyish cyan-green
-// less saturated
-// --- Layer 2: Mid ---
-osc(5, 0.02, 0.9)
-	.color(0.6, 0.6, 0.65)
-	.rotate(() => 0.05 * Math.sin(time * 0.15) + randomOffsets.mid)
-	.diff(src(o2)
-		.rotate(() => 0.01 + 0.03 + randomOffsets.mid))
-	.blend(src(o2), 0.7)
-	.scrollX(() => 0.005 * Math.sin(time * 0.2) + randomOffsets.mid)
-	.saturate(1.5)
-	.out(o2);
-// muted grey-green
-// --- Layer 3: Treble ---
-osc(8, 0.03, 1)
-	.color(0.55, 0.6, 0.65)
-	.rotate(() => 0.03 * Math.cos(time * 0.2) + randomOffsets.treble)
-	.diff(src(o3)
-		.rotate(() => 0.005 + 0.02 + randomOffsets.treble))
-	.blend(src(o3), 0.312)
-	.scrollY(() => 0.006 * Math.cos(time * 0.25) + randomOffsets.treble)
-	.saturate(1.5)
-	.out(o3);
-// greyish blue
-// --- Composite layers to screen ---
-src(o1)
-	.blend(src(o2), 0.5)
-	.blend(src(o3), 0.5)
-	.out();
-render();// --- Microphone input ---
-  
+// — Voluptuous Flesh Mutations with Breathing —
+// swelling, bulbous, organic forms with slow inhale/exhale
+
+speed = 0.5
+
+// Breathing modulation
+breath = () => 1 + 0.08 * Math.sin(time * 0.35)  // slow inhale/exhale
+
+// Base swelling flesh
+flesh = () => noise(2,0.25)
+  .pixelate(150,150)
+  .kaleid(5)
+  .scale( ()=>breath() + 0.2*Math.sin(time*0.3) )
+  .color(1.3,0.8,0.7)
+  .contrast(1.15)
+  .brightness(0.18)
+
+// Oscillating bulges with smooth pulsation
+bulges = () => osc(5,0.08,0.3)
+  .modulate(noise(3,0.15),0.4)
+  .rotate( ()=>0.15*Math.sin(time*0.25) )
+  .scale( ()=>breath() + 0.25*Math.sin(time*0.6) )
+  .kaleid(8)
+  .color(1.1,0.6,0.7)
+  .contrast(1.2)
+  .brightness(0.1)
+
+// Shimmering “skin” overlay
+skin = () => voronoi(8,0.1,15)
+  .modulate(noise(1.5,0.2),0.3)
+  .brightness(0.25)
+  .contrast(1.05)
+  .color(1.4,1.0,1.0)
+  .luma(0.4,0.25)
+
+// Final blend
+flesh()
+  .blend(bulges(),0.65)
+  .layer(skin().mult(flesh(),0.4))
+  .modulate(noise(2.5,0.15),0.2)
+  .saturate(1.2)
+  .contrast(1.1)
+  .scale( ()=>breath() ) // gentle global breathing
+  .out(o0)
 
   // --- Slime generator ---
   
