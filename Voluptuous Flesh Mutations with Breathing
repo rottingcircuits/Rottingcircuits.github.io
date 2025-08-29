@@ -1,0 +1,44 @@
+// — Voluptuous Flesh Mutations with Breathing —
+// swelling, bulbous, organic forms with slow inhale/exhale
+
+speed = 0.5
+
+// Breathing modulation
+breath = () => 1 + 0.08 * Math.sin(time * 0.35)  // slow inhale/exhale
+
+// Base swelling flesh
+flesh = () => noise(2,0.25)
+  .pixelate(150,150)
+  .kaleid(5)
+  .scale( ()=>breath() + 0.2*Math.sin(time*0.3) )
+  .color(1.3,0.8,0.7)
+  .contrast(1.15)
+  .brightness(0.18)
+
+// Oscillating bulges with smooth pulsation
+bulges = () => osc(5,0.08,0.3)
+  .modulate(noise(3,0.15),0.4)
+  .rotate( ()=>0.15*Math.sin(time*0.25) )
+  .scale( ()=>breath() + 0.25*Math.sin(time*0.6) )
+  .kaleid(8)
+  .color(1.1,0.6,0.7)
+  .contrast(1.2)
+  .brightness(0.1)
+
+// Shimmering “skin” overlay
+skin = () => voronoi(8,0.1,15)
+  .modulate(noise(1.5,0.2),0.3)
+  .brightness(0.25)
+  .contrast(1.05)
+  .color(1.4,1.0,1.0)
+  .luma(0.4,0.25)
+
+// Final blend
+flesh()
+  .blend(bulges(),0.65)
+  .layer(skin().mult(flesh(),0.4))
+  .modulate(noise(2.5,0.15),0.2)
+  .saturate(1.2)
+  .contrast(1.1)
+  .scale( ()=>breath() ) // gentle global breathing
+  .out(o0)
